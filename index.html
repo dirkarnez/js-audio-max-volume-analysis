@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Volume Analysis</title>
+</head>
+<body>
+    <input type="file" id="audioFileInput" accept="audio/*">
+    <button id="analyzeButton">Analyze Volume</button>
+    <div id="result"></div>
+
+    <script>
+        const audioFileInput = document.getElementById('audioFileInput');
+        const analyzeButton = document.getElementById('analyzeButton');
+        const resultDiv = document.getElementById('result');
+
+        analyzeButton.addEventListener('click', async () => {
+            const file = audioFileInput.files[0];
+            if (!file) {
+                resultDiv.textContent = 'Please select an audio file.';
+                return;
+            }
+
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+
+            const audioBuffer = await loadAudioFile(file, audioContext);
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            source.start(0);
+
+            // Use setTimeout to analyze the audio after a short duration
+            setTimeout(() => {
+                analyser.getByteFrequencyData(dataArray);
+                const maxVolume = Math.max(...dataArray);
+                const maxDecibels = 20 * Math.log10(maxVolume / 255); // Convert to decibels
+                
+                resultDiv.textContent = `Max Volume: ${maxVolume} (Decibels: ${maxDecibels.toFixed(2)})`;
+                audioContext.close(); // Clean up
+            }, 1000 * 60 * 6); // Analyze after 1 second
+
+        });
+
+        async function loadAudioFile(file, audioContext) {
+            const arrayBuffer = await file.arrayBuffer();
+            return audioContext.decodeAudioData(arrayBuffer);
+        }
+    </script>
+</body>
+</html>
